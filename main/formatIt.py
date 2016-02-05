@@ -4,74 +4,73 @@ Created on Jan 11, 2016
 
 @author: y2joshi
 '''
-
-import sys
+import getopt, sys
 import csv
-if __name__ == '__main__':
 
-    offset = 0
-    currOffset = 0
-    notEOF = True
-    sliceCount = 0
-    while notEOF == True:
-        eventsToNum={}
-        eid = 1
-        try:
-            with open(sys.argv[1]) as csvfile:
-                rowCount = 0
-                csvfile.seek(currOffset)
-                #print currOffset
-                reader = csv.reader(csvfile)
-                notEOF = False
-                for row in reader:
-                    notEOF = True
-                    if row[2] == "INT_ENTR" or row[2] == "INT_EXIT" or row[2] == "INT_HANDLER_ENTR" or row[2] == "INTR_HANDLER_EXIT":   
-                        keyIntr = str(row[2]) + str(row[3]) + str(row[8])                  
-                        if eventsToNum.has_key(keyIntr):
-                            evtNum =  eventsToNum.get(keyIntr)
-                        else:
-                            eventsToNum[keyIntr]  = eid   
-                            eid = eid + 1  
-                    rowCount = rowCount + 1
-                    offset = offset + sys.getsizeof(row)               
-                    if rowCount > int(sys.argv[2]):
-                        break   
-        finally:
-            csvfile.close()   
-             
+if __name__ == '__main__':
+    eventsToNum={}
+    eid = 1
+    tLimit = None
+    aLimit = None
+    regExDim = None
+    fileName = None
+    outFileName = None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "f:t:a:o:")
+        
+    except getopt.GetoptError as err:
+        # print help information and exit:
+        print str(err) # will print something like "option -a not recognized"
+        #usage()
+        sys.exit(2)
+        
+    for o, a in opts:
+        if o == "-f":
+            fileName = a
+        if o == "-t":
+            tLimit = int(a)
+        if o == "-o":
+            outFileName = a    
+        elif o == "-a":
+            aLimit = int(a)
+    
+    if tLimit == None or aLimit == None or outFileName == None:
+        print("Not all parameters supplied")
+        sys.exit(2)    
+                
+    try:
+        #print("Here")
+        csvfile = open(fileName)
+        rowCount = 0
+        #outFileName = fileName.split(".")[0] + "out.txt"
+        outFile = open(outFileName,"w")
+        reader = csv.reader(csvfile)
+        print "Writing Slice - " + outFileName
         linenum = 1
-        try:
-            with open(sys.argv[1]) as csvfile:
-                rowCount = 0
-                csvfile.seek(currOffset)
-                reader = csv.reader(csvfile)
-                outFileName = sys.argv[1].split(".")[0] + str(sliceCount) + ".txt"
-                print "Writing Slice - " + outFileName
-                outFile = open(outFileName,"w")
-                for row in reader:
-                    if linenum == 1:
-                        outFile.write("time, traceEvent, eventName")
-                        #print "time, traceEvent, eventName"
-                        linenum = linenum + 1
-                        continue
-                    
-                    if row[2] == "INT_ENTR" or row[2] == "INT_EXIT" or row[2] == "INT_HANDLER_ENTR" or row[2] == "INTR_HANDLER_EXIT":   
-                        keyIntr = str(row[2]) + str(row[3]) + str(row[8])                  
-                        if eventsToNum.has_key(keyIntr):
-                            evtNum =  eventsToNum.get(keyIntr)
-                            outFile.write(str(row[0]) + "," + str(evtNum) + "," + str(keyIntr) + "\n")
-                            #print(str(row[0]) + "," + str(evtNum) + "," + str(keyIntr))
+        for row in reader:
+            if linenum == 1:
+                linenum = linenum + 1
+                continue   
+            skip = False         
+            keyIntr = str(row[2]) + str(row[3])  
                             
-                    else:    
-                        outFile.write(str(row[0]) + "," + str(eid) + "," + "NA" + "\n")   
-                        #print(str(row[0]) + "," + str(eid) + "," + "NA")   
-                    rowCount = rowCount + 1   
-                    if rowCount > int(sys.argv[2]):
-                        break        
+            if eventsToNum.has_key(keyIntr):
+                evtNum =  eventsToNum.get(keyIntr)                        
+            else:
+                if eid > aLimit:
+                    skip = True
+                else:    
+                    eventsToNum[keyIntr]  = eid   
+                    evtNum = eid
+                    eid = eid + 1
                     
-        finally:
-            csvfile.close()  
-            outFile.close()
-            
-        currOffset = offset     
-        sliceCount = sliceCount + 1       
+            if not skip:          
+                outFile.write(str(row[0]) + "," + str(evtNum) + "," + str(keyIntr) + "\n")    
+                rowCount = rowCount + 1       
+ 
+            if rowCount > tLimit:
+                break   
+    finally:
+        print("Done")
+        csvfile.close()   
+        outFile.close() 
